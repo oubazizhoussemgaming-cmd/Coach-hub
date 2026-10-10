@@ -1,17 +1,28 @@
 <!DOCTYPE html>
 <script>
-  // Mock login session so CoachHub loads without contacting Whacka's servers
+  // 1. Set local storage session tokens to pass app auth checks
+  const mockUser = { id: 'local-user', email: 'coach@local.app', role: 'authenticated' };
   localStorage.setItem('token', 'mock_token_active');
-  localStorage.setItem('user', JSON.stringify({ id: 'local-user', name: 'Coach' }));
-  localStorage.setItem('supabase.auth.token', JSON.stringify({ 
-    currentSession: { access_token: 'mock', user: { id: 'local-user', email: 'coach@local.app' } } 
-  }));
+  localStorage.setItem('user', JSON.stringify(mockUser));
+  localStorage.setItem('sb-access-token', 'mock');
+  localStorage.setItem('sb-refresh-token', 'mock');
+  
+  try {
+    const sessionPayload = JSON.stringify({ currentSession: { access_token: 'mock', user: mockUser }, user: mockUser });
+    localStorage.setItem('supabase.auth.token', sessionPayload);
+  } catch (e) {}
 
-  // Hide any remaining login modal overlays on page load
-  document.addEventListener('DOMContentLoaded', () => {
-    const authOverlays = document.querySelectorAll('[class*="login"], [id*="login"], [class*="auth"], [id*="auth"]');
-    authOverlays.forEach(el => el.style.display = 'none');
-  });
+  // 2. Intercept and block external API spam causing 429 errors
+  const originalFetch = window.fetch;
+  window.fetch = async function(resource, init) {
+    if (typeof resource === 'string' && (resource.includes('/mon/api/') || resource.includes('whacka.app'))) {
+      return new Response(JSON.stringify({ success: true, data: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    return originalFetch(resource, init);
+  };
 </script>
 <html lang=en translate=no style=--keyboard-height:0px;--visual-height:633px><!--
  Page saved with SingleFile 
